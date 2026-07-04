@@ -1,0 +1,48 @@
+---
+import { SITE } from '../lib/site';
+
+interface Props {
+  serviceName: string;
+}
+const { serviceName } = Astro.props;
+---
+<section class="bg-sky-50 border border-sky-200 rounded-2xl p-6 sm:p-8">
+  <h2 class="text-xl font-bold text-sky-900">Get a free {serviceName.toLowerCase()} quote in {SITE.city}</h2>
+  <p class="mt-1 text-sm text-stone-600">
+    Tell us what you need and we'll match you with a local pro — or call
+    <a href={SITE.phoneHref} class="font-semibold text-sky-700">{SITE.phone}</a>.
+  </p>
+  <form method="POST" action={SITE.formEndpoint} class="mt-4 grid gap-3 sm:grid-cols-2">
+    <input type="hidden" name="service" value={serviceName} />
+    <input
+      type="text"
+      name="name"
+      required
+      placeholder="Your name"
+      class="rounded-lg border border-stone-300 px-3 py-2 text-sm"
+    />
+    <input
+      type="tel"
+      name="phone"
+      required
+      placeholder="Phone number"
+      class="rounded-lg border border-stone-300 px-3 py-2 text-sm"
+    />
+    <input
+      type="email"
+      name="email"
+      placeholder="Email (optional)"
+      class="rounded-lg border border-stone-300 px-3 py-2 text-sm sm:col-span-2"
+    />
+    <textarea
+      name="message"
+      rows="3"
+      placeholder="What do you need done?"
+      class="rounded-lg border border-stone-300 px-3 py-2 text-sm sm:col-span-2"></textarea>
+    <button
+      type="submit"
+      class="sm:col-span-2 bg-sky-700 hover:bg-sky-800 text-white font-semibold rounded-lg px-4 py-3"
+      >Request my free quote</button
+    >
+  </form>
+</section>
