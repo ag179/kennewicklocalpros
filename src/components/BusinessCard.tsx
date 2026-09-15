@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Business } from '../lib/supabase';
+import type { Business } from '../lib/supabase-client';
 
 interface Props {
   business: Business;

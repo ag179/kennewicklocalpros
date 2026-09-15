@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, type Business } from '../lib/supabase';
+import { supabase, type Business } from '../lib/supabase-client';
 
 interface Props {
   slug: string;
