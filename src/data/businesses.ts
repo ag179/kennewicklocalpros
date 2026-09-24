@@ -78,15 +78,38 @@ function toBusiness(r: ListingRow): LocalBusiness {
   };
 }
 
+const MAX_ATTEMPTS = 5;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Build servers sometimes get their connection dropped ("fetch failed: other side closed").
+ * Retry a few times with a growing pause before giving up, and cap each attempt at 20 seconds.
+ */
+async function fetchWithRetry(endpoint: string, anonKey: string): Promise<ListingRow[]> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(endpoint, {
+        headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      return (await res.json()) as ListingRow[];
+    } catch (err) {
+      lastError = err;
+      const cause = err instanceof Error && err.cause ? ` (${String((err.cause as Error).message ?? err.cause)})` : '';
+      console.warn(`[listings] attempt ${attempt}/${MAX_ATTEMPTS} failed: ${err instanceof Error ? err.message : err}${cause}`);
+      if (attempt < MAX_ATTEMPTS) await sleep(1500 * 2 ** (attempt - 1)); // 1.5s, 3s, 6s, 12s
+    }
+  }
+  throw new Error(`Could not load listings from Supabase after ${MAX_ATTEMPTS} attempts: ${lastError instanceof Error ? lastError.message : lastError}`);
+}
+
 async function loadListings(): Promise<Record<string, LocalBusiness[]>> {
   const { url, anonKey, site } = SITE.listingsDb;
   const base = process.env.LISTINGS_DB_URL ?? url; // override only for local testing
   const endpoint = `${base}/rest/v1/listings?select=*&site=eq.${encodeURIComponent(site)}&order=service.asc,sort_order.asc,name.asc`;
-  const res = await fetch(endpoint, { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } });
-  if (!res.ok) {
-    throw new Error(`Could not load listings from Supabase (${res.status}): ${await res.text()}`);
-  }
-  const rows = (await res.json()) as ListingRow[];
+  const rows = await fetchWithRetry(endpoint, anonKey);
   if (rows.length === 0) {
     throw new Error(`Supabase returned no listings for site "${site}". Refusing to build pages without listings.`);
   }
