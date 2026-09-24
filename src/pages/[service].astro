@@ -2,10 +2,9 @@
 import Layout from '../layouts/Layout.astro';
 import LeadForm from '../components/LeadForm.astro';
 import BusinessList from '../components/BusinessList.astro';
-import { businessesByService } from '../data/businesses';
+import { getBusinessesByService } from '../data/businesses';
 import { services } from '../data/services';
 import { SITE } from '../lib/site';
-import { directoryCategories } from '../lib/supabase';
 import { serviceSchema, faqSchema, breadcrumbSchema, localBusinessSchema } from '../lib/schema';
 
 export function getStaticPaths() {
@@ -14,6 +13,7 @@ export function getStaticPaths() {
 
 const { entry } = Astro.props;
 const related = services.filter((s) => entry.related.includes(s.slug));
+const businessesByService = await getBusinessesByService();
 const localBusinesses = businessesByService[entry.slug] ?? [];
 const schemas: object[] = [serviceSchema(entry), faqSchema(entry), breadcrumbSchema(entry), localBusinessSchema()];
 if (localBusinesses.length > 0) {
@@ -36,7 +36,6 @@ if (localBusinesses.length > 0) {
   });
 }
 const categoryAnchor = entry.category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-const directoryMatch = directoryCategories.find((c) => c.serviceSlug === entry.slug);
 ---
 <Layout
   title={entry.metaTitle}
@@ -105,21 +104,6 @@ const directoryMatch = directoryCategories.find((c) => c.serviceSlug === entry.s
       <LeadForm serviceName={entry.name} />
     </div>
 
-    {directoryMatch && (
-      <section class="mt-12 bg-sky-50 border border-sky-200 rounded-2xl p-6">
-        <h2 class="text-xl font-bold text-sky-900">Browse {directoryMatch.label} businesses in {SITE.city}</h2>
-        <p class="mt-2 text-stone-700 leading-relaxed">
-          Looking for a local {directoryMatch.label.toLowerCase()} provider? Browse our directory of
-          trusted {directoryMatch.label.toLowerCase()} businesses serving {SITE.city} and the Tri-Cities area.
-        </p>
-        <a
-          href={`/directory/${directoryMatch.slug}`}
-          class="mt-4 inline-block bg-sky-700 hover:bg-sky-800 text-white font-semibold px-5 py-3 rounded-lg"
-        >
-          View {directoryMatch.label} directory
-        </a>
-      </section>
-    )}
 
     {related.length > 0 && (
       <section class="mt-12">

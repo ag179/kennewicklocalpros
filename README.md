@@ -27,6 +27,7 @@ Any static host works (Netlify, Cloudflare Pages, Vercel): build command `npm ru
 
 ## Structure
 
+- **Business listings** live in Supabase (table `listings`, rows where `site = 'kennewicklocalpros'`), read at build time by `src/data/businesses.ts`. Connection settings are in `src/lib/site.ts` (`listingsDb`). They appear on each service page (e.g. `/pestcontrol`) and as profile pages (`/pestcontrol/<business>`). After changing listings, republish the site so the pages are rebuilt. The build stops with an error if listings can't be loaded, so a broken connection never publishes empty pages.
 - `src/data/services/batch-01.ts … batch-08.ts` — all page content (48 `ServiceEntry` objects). This is where 100% of the copy lives.
 - `src/data/services/index.ts` — concatenates batches into `services`.
 - `src/pages/[service].astro` — one dynamic route renders every service page.

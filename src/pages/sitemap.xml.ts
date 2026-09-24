@@ -1,21 +1,15 @@
 import { services } from '../data/services';
-import { businessesByService } from '../data/businesses';
+import { getBusinessesByService } from '../data/businesses';
 import { SITE } from '../lib/site';
-import { supabase, directoryCategories } from '../lib/supabase';
 
 export async function GET() {
   const serviceUrls = ['', ...services.map((s) => s.slug)];
-  const directoryUrls = ['directory', ...directoryCategories.map((c) => `directory/${c.slug}`)];
-
-  const { data: businesses } = await supabase.from('kennewick').select('slug');
-  const businessUrls = (businesses ?? []).map((b) => `directory/${(b as { slug: string }).slug}`);
-
+  const businessesByService = await getBusinessesByService();
   const profileUrls = Object.entries(businessesByService).flatMap(([serviceSlug, list]) =>
     list.map((b) => `${serviceSlug}/${b.slug}`),
   );
 
-  const allPaths = [...serviceUrls, ...profileUrls, ...directoryUrls, ...businessUrls];
-  const urls = allPaths
+  const urls = [...serviceUrls, ...profileUrls]
     .map((p) => `<url><loc>${SITE.domain}/${p}</loc><changefreq>weekly</changefreq></url>`)
     .join('');
 

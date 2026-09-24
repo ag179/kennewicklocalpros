@@ -2,11 +2,12 @@
 import Layout from '../../layouts/Layout.astro';
 import LeadForm from '../../components/LeadForm.astro';
 import { services } from '../../data/services';
-import { businessesByService, milesBetween, type LocalBusiness } from '../../data/businesses';
+import { getBusinessesByService, milesBetween, type LocalBusiness } from '../../data/businesses';
 import { SITE } from '../../lib/site';
 
 // One profile page per listed business: /pestcontrol/eden-advanced-pest-technologies
-export function getStaticPaths() {
+export async function getStaticPaths() {
+  const businessesByService = await getBusinessesByService();
   return Object.entries(businessesByService).flatMap(([serviceSlug, list]) => {
     const entry = services.find((s) => s.slug === serviceSlug);
     if (!entry) return [];
