@@ -3,7 +3,7 @@ import { c as createAstro, a as createComponent, m as maybeRenderHead, d as addA
 import 'kleur/colors';
 import { a as $$Layout, $ as $$LeadForm } from '../chunks/LeadForm_B34E5igM.mjs';
 import 'clsx';
-import { g as getBusinessesByService } from '../chunks/businesses_D1xvn9i8.mjs';
+import { g as getBusinessesByService } from '../chunks/businesses_CjnFn81K.mjs';
 import { s as services } from '../chunks/index_U1Wg8-ld.mjs';
 import { S as SITE } from '../chunks/site_xz-GphEw.mjs';
 import { s as serviceSchema, f as faqSchema, b as breadcrumbSchema, l as localBusinessSchema } from '../chunks/schema_D1D0L_cj.mjs';

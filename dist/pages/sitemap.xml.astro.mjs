@@ -1,5 +1,5 @@
 import { s as services } from '../chunks/index_U1Wg8-ld.mjs';
-import { g as getBusinessesByService } from '../chunks/businesses_D1xvn9i8.mjs';
+import { g as getBusinessesByService } from '../chunks/businesses_CjnFn81K.mjs';
 import { S as SITE } from '../chunks/site_xz-GphEw.mjs';
 export { renderers } from '../renderers.mjs';
 

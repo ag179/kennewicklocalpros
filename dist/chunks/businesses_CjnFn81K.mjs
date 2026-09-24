@@ -25,15 +25,32 @@ function toBusiness(r) {
     reviewsUrl: r.reviews_url
   };
 }
+const MAX_ATTEMPTS = 5;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function fetchWithRetry(endpoint, anonKey) {
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(endpoint, {
+        headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, Accept: "application/json" },
+        signal: AbortSignal.timeout(2e4)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      return await res.json();
+    } catch (err) {
+      lastError = err;
+      const cause = err instanceof Error && err.cause ? ` (${String(err.cause.message ?? err.cause)})` : "";
+      console.warn(`[listings] attempt ${attempt}/${MAX_ATTEMPTS} failed: ${err instanceof Error ? err.message : err}${cause}`);
+      if (attempt < MAX_ATTEMPTS) await sleep(1500 * 2 ** (attempt - 1));
+    }
+  }
+  throw new Error(`Could not load listings from Supabase after ${MAX_ATTEMPTS} attempts: ${lastError instanceof Error ? lastError.message : lastError}`);
+}
 async function loadListings() {
   const { url, anonKey, site } = SITE.listingsDb;
   const base = process.env.LISTINGS_DB_URL ?? url;
   const endpoint = `${base}/rest/v1/listings?select=*&site=eq.${encodeURIComponent(site)}&order=service.asc,sort_order.asc,name.asc`;
-  const res = await fetch(endpoint, { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } });
-  if (!res.ok) {
-    throw new Error(`Could not load listings from Supabase (${res.status}): ${await res.text()}`);
-  }
-  const rows = await res.json();
+  const rows = await fetchWithRetry(endpoint, anonKey);
   if (rows.length === 0) {
     throw new Error(`Supabase returned no listings for site "${site}". Refusing to build pages without listings.`);
   }
