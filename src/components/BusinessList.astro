@@ -1,0 +1,44 @@
+---
+import type { LocalBusiness } from '../data/businesses';
+
+interface Props {
+  businesses: LocalBusiness[];
+  serviceName: string;
+  city: string;
+}
+const { businesses, serviceName, city } = Astro.props;
+const telHref = (p: string) => `tel:+1${p.replace(/\D/g, '')}`;
+---
+<section class="mt-12" id="local-businesses">
+  <h2 class="text-2xl font-bold text-stone-900">{serviceName} companies in {city} and the Tri-Cities</h2>
+  <p class="mt-2 text-sm text-stone-600 leading-relaxed">
+    {businesses.length} local {serviceName.toLowerCase()} providers, ranked by Google rating weighted by number of reviews.
+    Listings are independent businesses. Contact them directly.
+  </p>
+  <ol class="mt-5 grid gap-4 sm:grid-cols-2">
+    {businesses.map((b) => (
+      <li class="bg-white border border-stone-200 rounded-xl p-5 flex flex-col">
+        <div class="flex items-start justify-between gap-3">
+          <h3 class="font-semibold text-stone-900 leading-snug">{b.name}</h3>
+          {b.rating !== null && b.reviews > 0 && (
+            <span class="flex-none text-sm whitespace-nowrap">
+              <span class="font-bold text-amber-600">★ {b.rating.toFixed(1)}</span>
+              <span class="text-stone-400"> ({b.reviews.toLocaleString('en-US')})</span>
+            </span>
+          )}
+        </div>
+        <p class="mt-2 text-sm text-stone-600">{b.address}</p>
+        {b.hours && <p class="mt-1 text-xs text-stone-500">{b.hours}</p>}
+        <div class="mt-auto pt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold">
+          {b.phone && <a href={telHref(b.phone)} class="text-sky-700 hover:text-sky-800">{b.phone}</a>}
+          {b.website && (
+            <a href={b.website} target="_blank" rel="noopener nofollow" class="text-sky-700 hover:text-sky-800">Website</a>
+          )}
+          {b.mapsUrl && (
+            <a href={b.mapsUrl} target="_blank" rel="noopener nofollow" class="text-stone-500 hover:text-stone-700">Map</a>
+          )}
+        </div>
+      </li>
+    ))}
+  </ol>
+</section>
