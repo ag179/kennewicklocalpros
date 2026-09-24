@@ -23,12 +23,15 @@ export interface LocalBusiness {
   attributes: Record<string, string[]>;
   verified: boolean;
   featured: boolean;
+  /** Position by rating ranking (sort_order), ignoring featured placement. */
+  rank: number;
   mapsUrl: string | null;
   reviewsUrl: string | null;
 }
 
 interface ListingRow {
   service: string;
+  sort_order: number;
   slug: string;
   name: string;
   phone: string | null;
@@ -73,6 +76,7 @@ function toBusiness(r: ListingRow): LocalBusiness {
     attributes: r.attributes ?? {},
     verified: !!r.verified,
     featured: !!r.featured,
+    rank: 0,
     mapsUrl: r.maps_url,
     reviewsUrl: r.reviews_url,
   };
@@ -114,7 +118,13 @@ async function loadListings(): Promise<Record<string, LocalBusiness[]>> {
     throw new Error(`Supabase returned no listings for site "${site}". Refusing to build pages without listings.`);
   }
   const grouped: Record<string, LocalBusiness[]> = {};
-  for (const r of rows) (grouped[r.service] ??= []).push(toBusiness(r));
+  const byService: Record<string, ListingRow[]> = {};
+  for (const r of rows) (byService[r.service] ??= []).push(r);
+  for (const [service, list] of Object.entries(byService)) {
+    // Rows arrive in ranking order (sort_order). Record each listing's rank, then put featured ones on top.
+    const businesses = list.map((r, i) => ({ ...toBusiness(r), rank: i + 1 }));
+    grouped[service] = [...businesses.filter((b) => b.featured), ...businesses.filter((b) => !b.featured)];
+  }
   return grouped;
 }
 

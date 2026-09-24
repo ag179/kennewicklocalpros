@@ -11,9 +11,9 @@ export async function getStaticPaths() {
   return Object.entries(businessesByService).flatMap(([serviceSlug, list]) => {
     const entry = services.find((s) => s.slug === serviceSlug);
     if (!entry) return [];
-    return list.map((b, i) => ({
+    return list.map((b) => ({
       params: { service: serviceSlug, business: b.slug },
-      props: { b, rank: i + 1, total: list.length, list, serviceName: entry.name, serviceSlug },
+      props: { b, rank: b.rank, total: list.length, list, serviceName: entry.name, serviceSlug },
     }));
   });
 }
@@ -148,6 +148,7 @@ const description = `${b.name}: ${serviceLower} in ${cityState}.${
       <h1 class="text-3xl sm:text-4xl font-extrabold text-stone-900">{b.name}</h1>
       <p class="mt-2 text-stone-600">
         {serviceName} · {cityState}
+        {b.featured && <span class="ml-2 text-xs font-bold uppercase tracking-wide text-amber-950 bg-amber-400 px-2 py-0.5 rounded-full">★ Featured</span>}
         {b.verified && <span class="ml-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Verified Google listing</span>}
       </p>
       {b.rating !== null && b.reviews > 0 && (

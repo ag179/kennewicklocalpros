@@ -13,12 +13,21 @@ const telHref = (p: string) => `tel:+1${p.replace(/\D/g, '')}`;
 <section class="mt-10" id="local-businesses">
   <h2 class="text-2xl font-bold text-stone-900">{serviceName} companies in {city} and the Tri-Cities</h2>
   <p class="mt-2 text-sm text-stone-600 leading-relaxed">
-    {businesses.length} local {serviceName.toLowerCase()} providers, ranked by Google rating weighted by number of reviews.
+    {businesses.length} local {serviceName.toLowerCase()} providers, ranked by Google rating weighted by number of reviews{businesses.some((b) => b.featured) ? ', with featured providers first' : ''}.
     Listings are independent businesses. Contact them directly.
   </p>
   <ol class="mt-5 grid gap-4 sm:grid-cols-2">
     {businesses.map((b) => (
-      <li class="bg-white border border-stone-200 rounded-xl p-5 flex flex-col hover:border-sky-400 transition-colors">
+      <li
+        class={b.featured
+          ? 'relative bg-amber-50 border-2 border-amber-400 rounded-xl p-5 flex flex-col shadow-md shadow-amber-100 sm:col-span-2'
+          : 'bg-white border border-stone-200 rounded-xl p-5 flex flex-col hover:border-sky-400 transition-colors'}
+      >
+        {b.featured && (
+          <span class="self-start mb-2 inline-flex items-center gap-1 bg-amber-400 text-amber-950 text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">
+            ★ Featured
+          </span>
+        )}
         <div class="flex items-start justify-between gap-3">
           <h3 class="font-semibold text-stone-900 leading-snug">
             <a href={`/${serviceSlug}/${b.slug}`} class="hover:text-sky-700">{b.name}</a>

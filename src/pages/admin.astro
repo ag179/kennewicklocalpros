@@ -1,0 +1,34 @@
+---
+// Private admin dashboard for business listings. Not linked anywhere, excluded from the sitemap,
+// disallowed in robots.txt and marked noindex. Access is enforced by Supabase row-level security:
+// only accounts in the listing_admins table can change listings.
+import AdminApp from '../components/admin/AdminApp.tsx';
+import { SITE } from '../lib/site';
+import { services } from '../data/services';
+
+const serviceNames = Object.fromEntries(services.map((s) => [s.slug, s.name]));
+const buildTime = new Date().toISOString();
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Admin · {SITE.name}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body class="bg-stone-100 text-stone-800 antialiased min-h-screen">
+    <AdminApp
+      client:only="react"
+      supabaseUrl={SITE.listingsDb.url}
+      supabaseAnonKey={SITE.listingsDb.anonKey}
+      site={SITE.listingsDb.site}
+      siteName={SITE.name}
+      domain={SITE.domain}
+      serviceNames={serviceNames}
+      buildTime={buildTime}
+    />
+    <noscript>This page needs JavaScript.</noscript>
+  </body>
+</html>
