@@ -7,7 +7,6 @@ export function localBusinessSchema() {
     '@type': 'LocalBusiness',
     name: SITE.name,
     url: SITE.domain,
-    telephone: SITE.phone,
     address: { '@type': 'PostalAddress', addressLocality: SITE.city, addressRegion: SITE.state, addressCountry: 'US' },
     geo: { '@type': 'GeoCoordinates', latitude: SITE.geo.lat, longitude: SITE.geo.lng },
     areaServed: { '@type': 'City', name: SITE.city },
@@ -23,7 +22,7 @@ export function serviceSchema(s: ServiceEntry) {
     description: s.metaDescription,
     url: `${SITE.domain}/${s.slug}`,
     areaServed: { '@type': 'City', name: SITE.city },
-    provider: { '@type': 'LocalBusiness', name: SITE.name, telephone: SITE.phone },
+    provider: { '@type': 'LocalBusiness', name: SITE.name, url: SITE.domain },
   };
 }
 

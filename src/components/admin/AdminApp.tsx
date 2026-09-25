@@ -197,6 +197,8 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
   const [deleting, setDeleting] = useState<Listing | null>(null);
   const [deletedCount, setDeletedCount] = useState(0);
   const [showAccount, setShowAccount] = useState(false);
+  const [view, setView] = useState<'listings' | 'leads'>('listings');
+  const [newLeads, setNewLeads] = useState<number | null>(null);
 
   const flash = useCallback((t: Toast) => {
     setToast(t);
@@ -221,6 +223,17 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    supabase
+      .from('site_leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('site', site)
+      .eq('status', 'new')
+      .then(({ count, error }) => {
+        if (!error) setNewLeads((cur) => cur ?? count ?? 0); // the Leads tab keeps it up to date once opened
+      });
+  }, [supabase, site]);
 
   const servicesInData = useMemo(() => [...new Set(listings.map((l) => l.service))], [listings]);
   const inTab = useMemo(
@@ -274,7 +287,7 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
       <header className="flex flex-wrap items-center justify-between gap-3 py-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{props.siteName}</p>
-          <h1 className="text-2xl font-extrabold text-stone-900">Listings admin</h1>
+          <h1 className="text-2xl font-extrabold text-stone-900">Admin</h1>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <a href="/" target="_blank" rel="noopener" className="font-semibold text-sky-700 hover:underline">
@@ -291,6 +304,27 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
 
       {showAccount && <AccountPanel supabase={supabase} onDone={flash} />}
 
+      <nav className="mb-5 flex gap-1 border-b border-stone-300">
+        {(['listings', 'leads'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`-mb-px px-4 py-2.5 text-sm font-semibold border-b-2 ${
+              view === v ? 'border-sky-700 text-sky-800' : 'border-transparent text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            {v === 'listings' ? 'Listings' : 'Leads'}
+            {v === 'leads' && newLeads ? (
+              <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">{newLeads} new</span>
+            ) : null}
+          </button>
+        ))}
+      </nav>
+
+      {view === 'leads' ? (
+        <LeadsView supabase={supabase} site={site} serviceNames={serviceNames} siteName={props.siteName} flash={flash} onChange={setNewLeads} />
+      ) : (
+      <>
       <div
         className={`rounded-xl px-4 py-3 text-sm border ${
           unpublished > 0 ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-white border-stone-200 text-stone-600'
@@ -433,6 +467,9 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
             </button>
           </div>
         </Modal>
+      )}
+
+      </>
       )}
 
       {toast && (
@@ -626,5 +663,207 @@ function ActionButton(props: {
     >
       {props.children}
     </button>
+  );
+}
+
+/* ----------------------------------------------------------------- leads */
+
+interface Lead {
+  id: string;
+  service: string | null;
+  page: string | null;
+  name: string;
+  email: string;
+  phone: string | null;
+  message: string | null;
+  status: 'new' | 'contacted' | 'done' | 'spam';
+  notes: string | null;
+  created_at: string;
+}
+
+const LEAD_STATUSES: { key: Lead['status']; label: string; cls: string }[] = [
+  { key: 'new', label: 'New', cls: 'bg-red-600 text-white' },
+  { key: 'contacted', label: 'Contacted', cls: 'bg-amber-400 text-amber-950' },
+  { key: 'done', label: 'Done', cls: 'bg-emerald-600 text-white' },
+  { key: 'spam', label: 'Spam', cls: 'bg-stone-300 text-stone-700' },
+];
+
+function LeadsView(props: {
+  supabase: SupabaseClient;
+  site: string;
+  siteName: string;
+  serviceNames: Record<string, string>;
+  flash: (t: Toast) => void;
+  onChange: (newCount: number) => void;
+}) {
+  const { supabase, site, serviceNames, flash, onChange } = props;
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<Lead['status'] | 'all'>('new');
+  const [deleting, setDeleting] = useState<Lead | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('site_leads')
+      .select('id,service,page,name,email,phone,message,status,notes,created_at')
+      .eq('site', site)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) flash({ kind: 'error', text: `Could not load leads: ${error.message}` });
+        else setLeads(data as Lead[]);
+        setLoading(false);
+      });
+  }, [supabase, site, flash]);
+
+  useEffect(() => onChange(leads.filter((l) => l.status === 'new').length), [leads, onChange]);
+
+  const save = async (lead: Lead, changes: Partial<Lead>, okText?: string) => {
+    const { data, error } = await supabase.from('site_leads').update(changes).eq('id', lead.id).select().single();
+    if (error) return flash({ kind: 'error', text: `Save failed: ${error.message}` });
+    setLeads((ls) => ls.map((l) => (l.id === lead.id ? (data as Lead) : l)));
+    if (okText) flash({ kind: 'ok', text: okText });
+  };
+
+  const remove = async (lead: Lead) => {
+    const { error } = await supabase.from('site_leads').delete().eq('id', lead.id);
+    setDeleting(null);
+    if (error) return flash({ kind: 'error', text: `Delete failed: ${error.message}` });
+    setLeads((ls) => ls.filter((l) => l.id !== lead.id));
+    flash({ kind: 'ok', text: 'Lead deleted' });
+  };
+
+  const exportCsv = () => {
+    const cols: (keyof Lead)[] = ['created_at', 'status', 'service', 'name', 'email', 'phone', 'message', 'notes', 'page'];
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [cols.join(','), ...leads.map((l) => cols.map((c) => esc(l[c])).join(','))].join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `${site}-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
+  const shown = filter === 'all' ? leads : leads.filter((l) => l.status === filter);
+  const serviceLabel = (s: string | null) => (s ? serviceNames[s] ?? (s === 'general' ? 'General' : s) : '—');
+
+  if (loading) return <p className="text-stone-500">Loading leads…</p>;
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        {[...LEAD_STATUSES, { key: 'all' as const, label: 'All', cls: '' }].map((st) => {
+          const n = st.key === 'all' ? leads.length : leads.filter((l) => l.status === st.key).length;
+          return (
+            <button
+              key={st.key}
+              onClick={() => setFilter(st.key)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold border ${
+                filter === st.key ? 'bg-sky-700 border-sky-700 text-white' : 'bg-white border-stone-300 text-stone-700 hover:border-sky-600'
+              }`}
+            >
+              {st.label} <span className="opacity-70">({n})</span>
+            </button>
+          );
+        })}
+        <button
+          onClick={exportCsv}
+          disabled={leads.length === 0}
+          className="ml-auto px-4 py-2 rounded-full text-sm font-semibold border bg-white border-stone-300 hover:border-sky-600 disabled:opacity-40"
+        >
+          Download CSV
+        </button>
+      </div>
+
+      {shown.length === 0 ? (
+        <div className="mt-6 rounded-xl border border-stone-200 bg-white p-8 text-center text-stone-500">
+          {leads.length === 0
+            ? 'No quote requests yet. They appear here as soon as someone sends the form on the site.'
+            : 'No leads with this status.'}
+        </div>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {shown.map((l) => {
+            const st = LEAD_STATUSES.find((x) => x.key === l.status)!;
+            const subject = encodeURIComponent(`Your ${serviceLabel(l.service).toLowerCase()} request – ${props.siteName}`);
+            return (
+              <li key={l.id} className={`rounded-xl border bg-white p-5 ${l.status === 'new' ? 'border-red-300' : 'border-stone-200'}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-stone-900">{l.name}</span>
+                      <Badge className={st.cls}>{st.label}</Badge>
+                      <Badge className="bg-sky-100 text-sky-800">{serviceLabel(l.service)}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-stone-600">
+                      <a href={`mailto:${l.email}?subject=${subject}`} className="font-semibold text-sky-700 hover:underline">
+                        {l.email}
+                      </a>
+                      {l.phone && (
+                        <>
+                          {' · '}
+                          <a href={`tel:${l.phone.replace(/[^+\d]/g, '')}`} className="hover:underline">
+                            {l.phone}
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-stone-500">
+                    <div>{new Date(l.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</div>
+                    {l.page && <div className="mt-0.5">from {l.page}</div>}
+                  </div>
+                </div>
+
+                {l.message && <p className="mt-3 whitespace-pre-wrap rounded-lg bg-stone-50 p-3 text-sm text-stone-800">{l.message}</p>}
+
+                <div className="mt-4 flex flex-wrap items-end gap-3">
+                  <label className="text-xs font-semibold text-stone-500">
+                    Status
+                    <select
+                      value={l.status}
+                      onChange={(e) => save(l, { status: e.target.value as Lead['status'] }, 'Status updated')}
+                      className="mt-1 block rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-800"
+                    >
+                      {LEAD_STATUSES.map((x) => (
+                        <option key={x.key} value={x.key}>
+                          {x.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="min-w-[14rem] flex-1 text-xs font-semibold text-stone-500">
+                    Notes (only you see these)
+                    <input
+                      defaultValue={l.notes ?? ''}
+                      placeholder="e.g. sent to Eden Pest, replied 25 Sep"
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== (l.notes ?? '')) save(l, { notes: v || null }, 'Note saved');
+                      }}
+                      className="mt-1 block w-full rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-normal text-stone-800"
+                    />
+                  </label>
+                  <ActionButton onClick={() => setDeleting(l)} className="text-red-700 hover:border-red-500">
+                    Delete
+                  </ActionButton>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {deleting && (
+        <Modal onClose={() => setDeleting(null)}>
+          <h2 className="text-lg font-bold text-stone-900">Delete this lead from {deleting.name}?</h2>
+          <p className="mt-2 text-sm text-stone-600">This can't be undone. To keep it but get it out of the way, set the status to Done or Spam instead.</p>
+          <div className="mt-6 flex justify-end gap-2">
+            <ActionButton onClick={() => setDeleting(null)}>Cancel</ActionButton>
+            <button onClick={() => remove(deleting)} className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">
+              Delete permanently
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }

@@ -4,9 +4,6 @@ export const SITE = {
   city: 'Kennewick',
   state: 'WA',
   stateFull: 'Washington',
-  phone: '(XXX) XXX-XXXX',
-  phoneHref: 'tel:+15095550000',
-  formEndpoint: 'https://formspree.io/f/YOUR_FORM_ID',
   geo: { lat: 46.2112, lng: -119.1372 },
   // Business listings are read from this Supabase project at build time (table: listings, filtered by site).
   // The anon key is a public, read-only key: row-level security only lets it read visible listings.
