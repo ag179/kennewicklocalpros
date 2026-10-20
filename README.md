@@ -25,6 +25,14 @@ npm run dev       # dev server
 
 Any static host works (Netlify, Cloudflare Pages, Vercel): build command `npm run build`, publish directory `dist`.
 
+## Design
+
+The site uses the **Columbia Dusk** design: navy, sand and brass, Cormorant Garamond headings, Hanken Grotesk body text. Colors are CSS variables in `src/layouts/Layout.astro` (with a dark-mode set) and mapped to Tailwind names (`paper`, `surface`, `ink`, `muted`, `line`, `brass`, `brassfill`, `navy`) in `tailwind.config.mjs`. The hero, cover and montage images are illustrations in `public/img/`; replace them with photos by swapping the files (and the extensions in `index.astro` / `BusinessList.astro`).
+
+## Admin
+
+`/admin` is the private dashboard: reorder, feature, hide, edit, delete and **add** listings (`+ Add listing`), and review leads (including `claim-listing` requests from the "Claim this listing" forms). Republish after changes.
+
 ## Structure
 
 - **Business listings** live in Supabase (table `listings`, rows where `site = 'kennewicklocalpros'`), read at build time by `src/data/businesses.ts`. Connection settings are in `src/lib/site.ts` (`listingsDb`). They appear on each service page (e.g. `/pestcontrol`) and as profile pages (`/pestcontrol/<business>`). After changing listings, republish the site so the pages are rebuilt. The build stops with an error if listings can't be loaded, so a broken connection never publishes empty pages.

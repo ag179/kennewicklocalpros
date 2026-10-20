@@ -2,67 +2,82 @@
 import Layout from '../layouts/Layout.astro';
 import LeadForm from '../components/LeadForm.astro';
 import { SITE } from '../lib/site';
-import { byCategory } from '../data/services';
+import { services, byCategory } from '../data/services';
+import { getBusinessesByService } from '../data/businesses';
 import { localBusinessSchema } from '../lib/schema';
+import { categoryIcons } from '../lib/icons';
 
 const categories = byCategory();
+const businessesByService = await getBusinessesByService();
+const listingCount = Object.values(businessesByService).reduce((n, l) => n + l.length, 0);
+const countFor = (slug: string) => businessesByService[slug]?.length ?? 0;
 const anchor = (c: string) => c.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+const quick = ['pestcontrol', 'roofing', 'plumbing', 'hvac', 'electrician', 'landscaping']
+  .map((s) => services.find((x) => x.slug === s))
+  .filter((x): x is (typeof services)[number] => !!x);
+const searchIndex = services.map((s) => ({ slug: s.slug, name: s.name }));
 
 const title = `Kennewick Local Pros — Home & Local Services in Kennewick, WA`;
-const description = `Find trusted local pros in Kennewick, WA for 48 home, outdoor, auto, and event services. Free quotes, one call or one form — we connect you with the right provider.`;
+const description = `Find trusted local pros in Kennewick, WA for 48 home, outdoor, auto, and event services. Compare Google-rated providers, get free quotes, one call or one form.`;
 ---
 
 <Layout title={title} description={description} canonical={`${SITE.domain}/`} schemas={[localBusinessSchema()]}>
-  <main class="max-w-5xl mx-auto px-4">
-    <section class="py-12 sm:py-16">
-      <h1 class="text-3xl sm:text-4xl font-extrabold text-stone-900 max-w-3xl">
-        Every local service Kennewick actually needs, one directory.
-      </h1>
-      <div class="mt-6 max-w-3xl space-y-4 text-stone-700 leading-relaxed">
-        <p>
-          Kennewick is a working town in an unusual place: a shrub-steppe desert with eight inches of rain a year,
-          summers that run past 100°F, wind events that top 50 mph, and irrigation water that keeps lawns green from
-          April to October. Those conditions are hard on houses — and they shape which trades matter here. Roofs age
-          from UV rather than moisture. Concrete cracks from freeze-thaw winters, not rain. Hard Columbia Basin water
-          shortens the life of every water heater in town, and cheap Mid-Columbia hydro power means most households run
-          electric heat, which changes the math on furnaces, heat pumps, and EV chargers.
-        </p>
-        <p>
-          The housing stock is just as specific. Much of central Kennewick was built fast during the Hanford decades —
-          1950s and 60s ranch homes with original panels, galvanized plumbing, and single-pane windows — while
-          Southridge and the newer south-side neighborhoods have modern construction with its own punch list. Whether
-          you own a 70-year-old ranch near Highlands or a five-year-old build off Bob Olson Parkway, the pro you need
-          exists somewhere in the Tri-Cities. Finding the right one is the hard part.
-        </p>
-        <p>
-          That's what this directory does. We're a referral service, not a contractor: browse the 48 services below,
-          each with a straight explanation of what the work involves in Kennewick specifically — local price drivers,
-          common problems, and questions worth asking. When you're ready, one call or one short form and we connect you
-          with an independent local provider. No membership, no fee to you.
-        </p>
-      </div>
-      <div class="mt-8 flex flex-wrap gap-3">
-        <a href="#quote" class="bg-sky-700 hover:bg-sky-800 text-white font-semibold px-5 py-3 rounded-lg"
-          >Get a free quote</a
-        >
-        <a href="#services" class="border border-stone-300 hover:border-stone-400 font-semibold px-5 py-3 rounded-lg"
-          >Browse all services</a
-        >
+  <main>
+    <section class="relative min-h-[600px] flex items-end text-[#F6EEDC] bg-[#0B1830] overflow-hidden">
+      <img src="/img/hero-bridge.svg" alt="Illustration of the Cable Bridge over the Columbia River at golden hour" class="absolute inset-0 w-full h-full object-cover" fetchpriority="high" />
+      <div class="relative w-full max-w-6xl mx-auto px-5">
+        <div class="max-w-[640px] pt-16 pb-14 sm:pt-24 sm:pb-[72px]">
+          <h1 class="text-[clamp(46px,7vw,88px)] text-[#FFF6E2]">The Tri-Cities’ best trades, in one place.</h1>
+          <p class="mt-5 text-lg sm:text-xl max-w-[520px] text-[#E6DCC6]">
+            Compare Google-rated pros for {services.length} home, auto and event services in Kennewick, Pasco and Richland. Call them directly.
+          </p>
+          <form id="hero-search" class="mt-7 flex bg-surface text-ink rounded-lg p-1.5 max-w-[560px] shadow-[0_18px_50px_rgba(5,10,20,.45)] focus-within:outline focus-within:outline-[3px] focus-within:outline-brassfill" role="search">
+            <label class="flex-1 min-w-0 flex items-center gap-2.5 px-3 text-muted">
+              <svg viewBox="0 0 24 24" class="w-5 h-5 flex-none" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+              <input type="text" list="service-list" aria-label="What do you need done?" placeholder="What do you need done? Try “roof repair”" class="flex-1 min-w-0 bg-transparent border-0 outline-none py-3.5 text-base text-ink placeholder:text-muted" />
+            </label>
+            <button type="submit" class="btn-brass">Find pros</button>
+          </form>
+          <datalist id="service-list">{services.map((s) => <option value={s.name} />)}</datalist>
+          <div class="mt-4 flex flex-wrap gap-2">
+            {quick.map((s) => (
+              <a href={`/${s.slug}`} class="text-sm text-[#F1E6CE] border border-[#F1E6CE]/40 rounded-full px-3.5 py-1.5 bg-[#0B1830]/40 hover:bg-[#0B1830]/70 hover:border-[#F1E6CE] no-underline">{s.name}</a>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
 
-    <section id="services" class="pb-4">
-      <h2 class="text-2xl font-bold text-stone-900">All services in Kennewick, WA</h2>
-      <div class="mt-6 grid gap-8 sm:grid-cols-2">
+    <div class="bg-navy text-[#EADFC8]">
+      <div class="max-w-6xl mx-auto px-5 py-4 flex flex-wrap gap-x-9 gap-y-2 text-[15px]">
+        <span><b class="font-serif text-[26px] text-[#E8C27C] font-semibold mr-2 align-[-2px]">{services.length}</b>services</span>
+        <span><b class="font-serif text-[26px] text-[#E8C27C] font-semibold mr-2 align-[-2px]">{categories.size}</b>trades</span>
+        <span><b class="font-serif text-[26px] text-[#E8C27C] font-semibold mr-2 align-[-2px]">{listingCount}</b>local providers</span>
+        <span><b class="font-serif text-[26px] text-[#E8C27C] font-semibold mr-2 align-[-2px]">Free</b>for homeowners</span>
+      </div>
+    </div>
+
+    <section id="trades" class="max-w-6xl mx-auto px-5 pt-20">
+      <div class="flex flex-wrap items-end justify-between gap-6 mb-8">
+        <h2 class="text-5xl sm:text-6xl max-w-xl">Find a pro by trade</h2>
+        <p class="max-w-sm text-muted">
+          Every service page explains what the work involves in Kennewick, then lists the providers ranked by rating and review count.
+        </p>
+      </div>
+      <div class="grid gap-x-12 sm:grid-cols-2 lg:grid-cols-3">
         {
           [...categories.entries()].map(([category, entries]) => (
-            <div id={anchor(category)} class="bg-white border border-stone-200 rounded-2xl p-6">
-              <h3 class="font-bold text-sky-900">{category}</h3>
-              <ul class="mt-3 space-y-2">
+            <div id={anchor(category)} class="border-t border-line pt-6 pb-8 scroll-mt-24">
+              <div class="flex items-center gap-3 mb-3">
+                <svg viewBox="0 0 24 24" class="w-[26px] h-[26px] flex-none stroke-brass" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={categoryIcons[category] ?? ''} />
+                <h3 class="text-[28px]">{category}</h3>
+              </div>
+              <ul class="grid gap-0.5 list-none p-0">
                 {entries.map((s) => (
                   <li>
-                    <a href={`/${s.slug}`} class="text-stone-700 hover:text-sky-700 hover:underline">
+                    <a href={`/${s.slug}`} class="flex justify-between py-1.5 text-[15.5px] text-muted no-underline border-b border-transparent hover:text-ink hover:border-brassfill">
                       {s.name}
+                      {countFor(s.slug) > 0 && <span class="text-brass text-sm">{countFor(s.slug)}</span>}
                     </a>
                   </li>
                 ))}
@@ -73,8 +88,80 @@ const description = `Find trusted local pros in Kennewick, WA for 48 home, outdo
       </div>
     </section>
 
-    <section class="py-12 max-w-2xl">
+    <section id="place" class="max-w-6xl mx-auto px-5 pt-20">
+      <div class="grid gap-10 md:grid-cols-[5fr_6fr] items-start">
+        <div class="grid grid-cols-2 gap-3.5">
+          <figure class="relative col-span-2 h-[300px] sm:h-[340px] rounded overflow-hidden bg-navy m-0">
+            <img src="/img/tile-bridge.svg" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+            <figcaption class="absolute inset-x-0 bottom-0 px-3.5 pb-3 pt-9 text-sm font-medium text-[#FBF1DA] bg-gradient-to-t from-[#080e1a]/80 to-transparent">The Cable Bridge at dusk</figcaption>
+          </figure>
+          <figure class="relative h-[200px] rounded overflow-hidden bg-navy m-0">
+            <img src="/img/tile-island.svg" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+            <figcaption class="absolute inset-x-0 bottom-0 px-3.5 pb-3 pt-9 text-sm font-medium text-[#FBF1DA] bg-gradient-to-t from-[#080e1a]/80 to-transparent">Clover Island</figcaption>
+          </figure>
+          <figure class="relative h-[200px] rounded overflow-hidden bg-navy m-0">
+            <img src="/img/tile-badger.svg" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+            <figcaption class="absolute inset-x-0 bottom-0 px-3.5 pb-3 pt-9 text-sm font-medium text-[#FBF1DA] bg-gradient-to-t from-[#080e1a]/80 to-transparent">Badger Mountain</figcaption>
+          </figure>
+        </div>
+        <div>
+          <h2 class="text-5xl sm:text-6xl">Written for a town of sun, wind and hard water.</h2>
+          <div class="mt-6 space-y-4 text-muted leading-relaxed">
+<p>
+              Kennewick is a working town in an unusual place: a shrub-steppe desert with eight inches of rain a year,
+              summers that run past 100°F, wind events that top 50 mph, and irrigation water that keeps lawns green from
+              April to October. Those conditions are hard on houses — and they shape which trades matter here. Roofs age
+              from UV rather than moisture. Concrete cracks from freeze-thaw winters, not rain. Hard Columbia Basin water
+              shortens the life of every water heater in town, and cheap Mid-Columbia hydro power means most households run
+              electric heat, which changes the math on furnaces, heat pumps, and EV chargers.
+            </p>
+            <p>
+              The housing stock is just as specific. Much of central Kennewick was built fast during the Hanford decades —
+              1950s and 60s ranch homes with original panels, galvanized plumbing, and single-pane windows — while
+              Southridge and the newer south-side neighborhoods have modern construction with its own punch list. Whether
+              you own a 70-year-old ranch near Highlands or a five-year-old build off Bob Olson Parkway, the pro you need
+              exists somewhere in the Tri-Cities. Finding the right one is the hard part.
+            </p>
+            <p>
+              That's what this directory does. We're a referral service, not a contractor: browse the 48 services below,
+              each with a straight explanation of what the work involves in Kennewick specifically — local price drivers,
+              common problems, and questions worth asking. When you're ready, one call or one short form and we connect you
+              with an independent local provider. No membership, no fee to you.
+            </p>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="claim" class="mt-20 bg-navy text-[#EADFC8]">
+      <div class="max-w-6xl mx-auto px-5 py-16 grid gap-10 md:grid-cols-[1.1fr_1fr] items-start">
+        <div>
+          <h2 class="text-5xl text-[#FFF3D9]">Run a trade business in the Tri-Cities?</h2>
+          <p class="mt-4 max-w-lg">
+            Every provider already has a free profile built from public Google data. Claim yours to add photos, services and a direct line, or ask about a featured spot at the top of your category.
+          </p>
+        </div>
+        <LeadForm serviceName="General" id="claim-form" mode="claim" />
+      </div>
+    </section>
+
+    <section class="max-w-2xl mx-auto px-5 pt-20">
       <LeadForm serviceName="General" />
     </section>
   </main>
 </Layout>
+
+<script is:inline define:vars={{ searchIndex }}>
+  document.getElementById('hero-search')?.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = (this.querySelector('input').value || '').trim().toLowerCase();
+    if (!q) return;
+    var hit =
+      searchIndex.find(function (s) { return s.name.toLowerCase() === q; }) ||
+      searchIndex.find(function (s) { return s.name.toLowerCase().indexOf(q) !== -1 || q.indexOf(s.name.toLowerCase()) !== -1; }) ||
+      searchIndex.find(function (s) { return q.split(/\s+/).some(function (w) { return w.length > 3 && s.name.toLowerCase().indexOf(w) !== -1; }); });
+    if (hit) window.location.href = '/' + hit.slug;
+    else document.getElementById('trades').scrollIntoView({ behavior: 'smooth' });
+  });
+</script>

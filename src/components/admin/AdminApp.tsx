@@ -46,6 +46,28 @@ const EDITABLE: { key: keyof Listing; label: string; hint?: string }[] = [
   { key: 'hours', label: 'Hours summary', hint: 'Short line shown on cards, e.g. Mon–Fri 8am–5pm' },
 ];
 
+
+interface NewListingInput {
+  service: string;
+  name: string;
+  phone: string;
+  website: string;
+  address: string;
+  street: string;
+  city: string;
+  postal_code: string;
+  hours: string;
+  services: string[];
+  lat: number | null;
+  lng: number | null;
+}
+
+const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 function useSupabase(url: string, key: string) {
   return useMemo(() => createClient(url, key, { auth: { persistSession: true, detectSessionInUrl: true } }), [url, key]);
 }
@@ -195,6 +217,7 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
   const [toast, setToast] = useState<Toast>(null);
   const [editing, setEditing] = useState<Listing | null>(null);
   const [deleting, setDeleting] = useState<Listing | null>(null);
+  const [adding, setAdding] = useState(false);
   const [deletedCount, setDeletedCount] = useState(0);
   const [showAccount, setShowAccount] = useState(false);
   const [view, setView] = useState<'listings' | 'leads'>('listings');
@@ -282,6 +305,39 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
     flash({ kind: 'ok', text: `Deleted ${l.name}` });
   };
 
+  const create = async (input: NewListingInput) => {
+    const base = slugify(input.name) || 'listing';
+    const taken = new Set(listings.filter((l) => l.service === input.service).map((l) => l.slug));
+    let slug = base;
+    if (taken.has(slug)) slug = `${base}-${slugify(input.city)}`;
+    for (let n = 2; taken.has(slug); n++) slug = `${base}-${n}`;
+    const sort_order = listings.filter((l) => l.service === input.service).reduce((m, l) => Math.max(m, l.sort_order), 0) + 1;
+    const row = {
+      site,
+      service: input.service,
+      slug,
+      name: input.name,
+      phone: input.phone || null,
+      website: input.website || null,
+      address: input.address,
+      street: input.street || null,
+      city: input.city,
+      postal_code: input.postal_code || null,
+      lat: input.lat,
+      lng: input.lng,
+      hours: input.hours || null,
+      services: input.services,
+      sort_order,
+    };
+    const { data, error } = await supabase.from('listings').insert(row).select().single();
+    if (error) return flash({ kind: 'error', text: `Could not add listing: ${error.message}` }), false;
+    setListings((ls) => [...ls, data as Listing]);
+    setTab(input.service);
+    setQuery('');
+    flash({ kind: 'ok', text: `Added ${input.name} to ${serviceNames[input.service] ?? input.service}` });
+    return true;
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 pb-16">
       <header className="flex flex-wrap items-center justify-between gap-3 py-5">
@@ -354,12 +410,18 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
             {serviceNames[s] ?? s} <span className="opacity-70">({listings.filter((l) => l.service === s).length})</span>
           </button>
         ))}
+        <button
+          onClick={() => setAdding(true)}
+          className="ml-auto px-4 py-2 rounded-full text-sm font-semibold bg-sky-700 hover:bg-sky-800 text-white"
+        >
+          + Add listing
+        </button>
         <input
           type="search"
           placeholder="Search name or city…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="ml-auto w-full sm:w-64 rounded-full border border-stone-300 px-4 py-2 text-sm focus:border-sky-600 focus:outline-none"
+          className="w-full sm:w-64 rounded-full border border-stone-300 px-4 py-2 text-sm focus:border-sky-600 focus:outline-none"
         />
       </div>
 
@@ -439,6 +501,17 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
         </ol>
       )}
 
+      {adding && (
+        <AddDialog
+          serviceNames={serviceNames}
+          defaultService={tab}
+          onCancel={() => setAdding(false)}
+          onSave={async (input) => {
+            if (await create(input)) setAdding(false);
+          }}
+        />
+      )}
+
       {editing && (
         <EditDialog
           listing={editing}
@@ -487,6 +560,117 @@ function Dashboard(props: Props & { supabase: SupabaseClient; email: string }) {
 }
 
 /* --------------------------------------------------------------- dialogs */
+
+function AddDialog({
+  serviceNames,
+  defaultService,
+  onCancel,
+  onSave,
+}: {
+  serviceNames: Record<string, string>;
+  defaultService: string;
+  onCancel: () => void;
+  onSave: (input: NewListingInput) => void;
+}) {
+  const options = Object.entries(serviceNames).sort((a, b) => a[1].localeCompare(b[1]));
+  const [form, setForm] = useState<Record<string, string>>({
+    service: defaultService && serviceNames[defaultService] ? defaultService : options[0]?.[0] ?? '',
+    name: '',
+    phone: '',
+    website: '',
+    address: '',
+    street: '',
+    city: 'Kennewick',
+    postal_code: '',
+    hours: '',
+    services: '',
+    lat: '',
+    lng: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const num = (v: string) => (v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.address.trim() || !form.city.trim() || !form.service) return;
+    setSaving(true);
+    await onSave({
+      service: form.service,
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      website: form.website.trim(),
+      address: form.address.trim(),
+      street: form.street.trim(),
+      city: form.city.trim(),
+      postal_code: form.postal_code.trim(),
+      hours: form.hours.trim(),
+      services: form.services.split(',').map((s) => s.trim()).filter(Boolean),
+      lat: num(form.lat),
+      lng: num(form.lng),
+    });
+    setSaving(false);
+  };
+
+  const input = 'mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 font-normal focus:border-sky-600 focus:outline-none';
+  const field = (key: string, label: string, opts: { required?: boolean; hint?: string; wide?: boolean; type?: string } = {}) => (
+    <label key={key} className={`block text-sm font-medium text-stone-700 ${opts.wide ? 'sm:col-span-2' : ''}`}>
+      {label}
+      <input
+        type={opts.type ?? 'text'}
+        value={form[key]}
+        required={opts.required}
+        onChange={(e) => set(key, e.target.value)}
+        className={input}
+      />
+      {opts.hint && <span className="mt-1 block text-xs font-normal text-stone-500">{opts.hint}</span>}
+    </label>
+  );
+
+  return (
+    <Modal onClose={onCancel} wide>
+      <form onSubmit={submit}>
+        <h2 className="text-lg font-bold text-stone-900">Add listing</h2>
+        <p className="mt-1 text-xs text-stone-500">
+          The new business is added at the bottom of its category. It appears on the live site after the next publish.
+        </p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm font-medium text-stone-700 sm:col-span-2">
+            Category
+            <select value={form.service} onChange={(e) => set('service', e.target.value)} className={input}>
+              {options.map(([slug, name]) => (
+                <option key={slug} value={slug}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {field('name', 'Business name', { required: true, wide: true })}
+          {field('phone', 'Phone')}
+          {field('website', 'Website', { hint: 'Full address, starting with https://' })}
+          {field('address', 'Full address', { required: true, wide: true, hint: 'e.g. 123 Main St, Kennewick, WA 99336' })}
+          {field('street', 'Street')}
+          {field('city', 'City', { required: true })}
+          {field('postal_code', 'ZIP code')}
+          {field('hours', 'Hours summary', { hint: 'e.g. Mon–Fri 8am–5pm' })}
+          {field('lat', 'Latitude (optional)', { hint: 'Used for the nearby-companies list. Leave empty to use central Kennewick.' })}
+          {field('lng', 'Longitude (optional)')}
+          {field('services', 'Services', { wide: true, hint: 'Separate with commas, e.g. Landscaping, Lawn care' })}
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <ActionButton onClick={onCancel}>Cancel</ActionButton>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 rounded-lg bg-sky-700 hover:bg-sky-800 disabled:opacity-50 text-white text-sm font-semibold"
+          >
+            {saving ? 'Adding…' : 'Add listing'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 function EditDialog({
   listing,

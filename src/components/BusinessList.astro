@@ -9,46 +9,131 @@ interface Props {
 }
 const { businesses, serviceName, serviceSlug, city } = Astro.props;
 const telHref = (p: string) => `tel:+1${p.replace(/\D/g, '')}`;
+const initials = (n: string) => {
+  const w = n.split(/[\s\-–&,.]+/).filter((x) => /^[A-Za-z]/.test(x));
+  return ((w[0]?.[0] ?? '') + (w[1]?.[0] ?? w[0]?.[1] ?? '')).toUpperCase();
+};
+const cities = [...new Set(businesses.map((b) => b.city))].sort((a, b) => businesses.filter((x) => x.city === b).length - businesses.filter((x) => x.city === a).length);
+const hasVerified = businesses.some((b) => b.verified) && businesses.some((b) => !b.verified);
+const topRated = businesses.filter((b) => (b.rating ?? 0) >= 4.9).length;
+const hasTop = topRated > 0 && topRated < businesses.length;
+const stars = (r: number) => '★'.repeat(Math.round(r)) + '☆'.repeat(5 - Math.round(r));
 ---
-<section class="mt-10" id="local-businesses">
-  <h2 class="text-2xl font-bold text-stone-900">{serviceName} companies in {city} and the Tri-Cities</h2>
-  <p class="mt-2 text-sm text-stone-600 leading-relaxed">
+<section class="mt-12" id="local-businesses" data-biz-list>
+  <h2 class="text-4xl sm:text-5xl">{serviceName} companies in {city} and the Tri-Cities</h2>
+  <p class="mt-3 text-sm text-muted leading-relaxed max-w-2xl">
     {businesses.length} local {serviceName.toLowerCase()} providers, ranked by Google rating weighted by number of reviews{businesses.some((b) => b.featured) ? ', with featured providers first' : ''}.
     Listings are independent businesses. Contact them directly.
   </p>
-  <ol class="mt-5 grid gap-4 sm:grid-cols-2">
+
+  {(cities.length > 1 || hasVerified || hasTop) && (
+    <div class="mt-5 flex flex-wrap items-center gap-2.5" role="group" aria-label="Filter providers">
+      {cities.length > 1 && (
+        <>
+          <button type="button" class="chip" data-f="city" data-v="all" aria-pressed="true">All cities</button>
+          {cities.map((c) => <button type="button" class="chip" data-f="city" data-v={c} aria-pressed="false">{c}</button>)}
+        </>
+      )}
+      {(hasVerified || hasTop) && cities.length > 1 && <span class="w-px h-6 bg-line mx-1" aria-hidden="true"></span>}
+      {hasVerified && <button type="button" class="chip" data-f="ver" aria-pressed="false">Verified only</button>}
+      {hasTop && <button type="button" class="chip" data-f="top" aria-pressed="false">4.9 and up</button>}
+      <span class="ml-auto text-sm text-muted" data-count aria-live="polite"></span>
+    </div>
+  )}
+
+  <ol class="mt-6 grid gap-4 list-none p-0">
     {businesses.map((b) => (
       <li
+        data-city={b.city}
+        data-verified={b.verified ? '1' : '0'}
+        data-rating={b.rating ?? 0}
         class={b.featured
-          ? 'relative bg-amber-50 border-2 border-amber-400 rounded-xl p-5 flex flex-col shadow-md shadow-amber-100 sm:col-span-2'
-          : 'bg-white border border-stone-200 rounded-xl p-5 flex flex-col hover:border-sky-400 transition-colors'}
+          ? 'bg-surface border-2 border-brassfill rounded-md overflow-hidden'
+          : 'bg-surface border border-line rounded-md p-5 sm:p-6 hover:border-brassfill transition-colors'}
       >
         {b.featured && (
-          <span class="self-start mb-2 inline-flex items-center gap-1 bg-amber-400 text-amber-950 text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">
-            ★ Featured
-          </span>
+          <div class="relative h-44 bg-navy">
+            <img src="/img/cover-bridge.svg" alt="" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+            <span class="absolute left-4 top-4 bg-brassfill text-[#14243a] font-bold text-[13px] px-2.5 py-1 rounded">Featured</span>
+          </div>
         )}
-        <div class="flex items-start justify-between gap-3">
-          <h3 class="font-semibold text-stone-900 leading-snug">
-            <a href={`/${serviceSlug}/${b.slug}`} class="hover:text-sky-700">{b.name}</a>
-          </h3>
-          {b.rating !== null && b.reviews > 0 && (
-            <span class="flex-none text-sm whitespace-nowrap">
-              <span class="font-bold text-amber-600">★ {b.rating.toFixed(1)}</span>
-              <span class="text-stone-400"> ({b.reviews.toLocaleString('en-US')})</span>
-            </span>
-          )}
-        </div>
-        <p class="mt-2 text-sm text-stone-600">{b.address}</p>
-        {b.hours && <p class="mt-1 text-xs text-stone-500">{b.hours}</p>}
-        <div class="mt-auto pt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold">
-          {b.phone && <a href={telHref(b.phone)} class="text-sky-700 hover:text-sky-800">{b.phone}</a>}
-          <a href={`/${serviceSlug}/${b.slug}`} class="text-sky-700 hover:text-sky-800">View profile</a>
-          {b.website && (
-            <a href={b.website} target="_blank" rel="noopener nofollow" class="text-stone-500 hover:text-stone-700">Website</a>
-          )}
+        <div class={b.featured ? 'p-5 sm:p-6' : ''}>
+          <div class="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto] gap-x-4 sm:gap-x-5 gap-y-3 items-start">
+            <div
+              class={`rounded-full bg-navy text-[#E8C27C] grid place-items-center font-serif font-bold flex-none ${b.featured ? 'w-[68px] h-[68px] text-3xl -mt-14 border-4 border-surface relative' : 'w-14 h-14 text-2xl'}`}
+              aria-hidden="true"
+            >{initials(b.name)}</div>
+            <div class="min-w-0">
+              <h3 class="text-[26px] sm:text-[28px]">
+                <a href={`/${serviceSlug}/${b.slug}`} class="no-underline hover:underline decoration-brassfill underline-offset-4">{b.name}</a>
+              </h3>
+              <div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[14.5px] text-muted">
+                <span>{b.address}</span>
+                {b.hours && <span>{b.hours}</span>}
+              </div>
+              {b.verified && (
+                <p class="mt-2 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-brass">
+                  <svg viewBox="0 0 24 24" class="w-[18px] h-[18px]" aria-hidden="true"><path d="M12 2l2.4 1.7 2.9-.2 1 2.7 2.4 1.7-.9 2.8.9 2.8-2.4 1.7-1 2.7-2.9-.2L12 22l-2.4-1.7-2.9.2-1-2.7-2.4-1.7.9-2.8-.9-2.8 2.4-1.7 1-2.7 2.9.2z" fill="currentColor" opacity=".18"/><path d="M12 2l2.4 1.7 2.9-.2 1 2.7 2.4 1.7-.9 2.8.9 2.8-2.4 1.7-1 2.7-2.9-.2L12 22l-2.4-1.7-2.9.2-1-2.7-2.4-1.7.9-2.8-.9-2.8 2.4-1.7 1-2.7 2.9.2z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8.5 12.2l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Verified Google listing
+                </p>
+              )}
+              {b.services.length > 0 && (
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                  {b.services.slice(0, 4).map((s) => <span class="text-[13px] border border-line rounded px-2 py-0.5 text-muted">{s}</span>)}
+                </div>
+              )}
+            </div>
+            {b.rating !== null && b.reviews > 0 && (
+              <div class="col-span-2 sm:col-span-1 flex sm:flex-col items-baseline sm:items-end gap-2 sm:gap-0 text-right">
+                <b class="font-serif text-[34px] sm:text-[38px] leading-none font-bold">{b.rating.toFixed(1)}</b>
+                <span class="text-brassfill tracking-[2px] text-sm sm:mt-0.5" aria-hidden="true">{stars(b.rating)}</span>
+                <small class="text-[13px] text-muted">{b.reviews.toLocaleString('en-US')} Google reviews</small>
+              </div>
+            )}
+          </div>
+          <div class="mt-4 pt-4 border-t border-line flex flex-wrap items-center gap-2.5">
+            {b.phone && <a href={telHref(b.phone)} class="btn-brass btn-sm">Call {b.phone}</a>}
+            <a href={`/${serviceSlug}/${b.slug}`} class="btn-line btn-sm">View profile</a>
+            {b.website && <a href={b.website} target="_blank" rel="noopener nofollow" class="btn-line btn-sm">Website</a>}
+            <a href={`/${serviceSlug}/${b.slug}#claim`} class="sm:ml-auto text-[13.5px] text-muted hover:text-ink underline underline-offset-2">Claim this listing</a>
+          </div>
         </div>
       </li>
     ))}
   </ol>
 </section>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-biz-list]').forEach((root) => {
+    const items = [...root.querySelectorAll<HTMLElement>('ol > li')];
+    const chips = [...root.querySelectorAll<HTMLButtonElement>('.chip')];
+    const count = root.querySelector<HTMLElement>('[data-count]');
+    const st = { city: 'all', ver: false, top: false };
+    const apply = () => {
+      let n = 0;
+      items.forEach((li) => {
+        const ok =
+          (st.city === 'all' || li.dataset.city === st.city) &&
+          (!st.ver || li.dataset.verified === '1') &&
+          (!st.top || parseFloat(li.dataset.rating ?? '0') >= 4.9);
+        li.style.display = ok ? '' : 'none';
+        if (ok) n++;
+      });
+      if (count) count.textContent = `${n} of ${items.length} shown`;
+    };
+    chips.forEach((c) =>
+      c.addEventListener('click', () => {
+        const f = c.dataset.f;
+        if (f === 'city') {
+          st.city = c.dataset.v ?? 'all';
+          chips.filter((x) => x.dataset.f === 'city').forEach((x) => x.setAttribute('aria-pressed', String(x === c)));
+        } else if (f === 'ver' || f === 'top') {
+          st[f] = !st[f];
+          c.setAttribute('aria-pressed', String(st[f]));
+        }
+        apply();
+      }),
+    );
+    apply();
+  });
+</script>
